@@ -1,0 +1,58 @@
+# 발표 리허설 룸
+
+제안 발표 준비용 웹사이트입니다. 발표자료(PPTX)와 정성제안서를 올려 두면 팀원 누구나 링크로 들어와 아래 네 가지를 할 수 있습니다.
+
+| 탭 | 하는 일 |
+|---|---|
+| 셀프 리허설 | 분·초를 정하고 슬라이드를 넘기며 혼자 리허설. 남은 시간, 슬라이드별 목표 대비 경과, 계획 대비 빠름·늦음, 종료 후 장별 결과표 |
+| 스크립트 | 슬라이드별 발표 스크립트를 팀이 함께 작성·확인. PPTX 슬라이드 노트를 자동으로 가져옴 |
+| 질의 목록 | 예상 질의·답변 모음. 직접 추가, 엑셀 표 붙여넣기, AI 생성 결과 붙여넣기, CSV 내려받기 |
+| 질의 연습 | 키워드·RFP 요구사항 번호·페이지(p.12)로 질의를 찾아 답변 타이머를 켜고 연습 |
+
+사이트는 정적 파일(HTML·CSS·JS)이라 GitHub Pages에 그대로 올리면 되고, 팀 공용 데이터와 파일은 Supabase(무료 플랜)에 저장합니다.
+
+## 설정 순서 (처음 한 번)
+
+### 1. Supabase 준비
+1. https://supabase.com 에 가입하고 새 프로젝트를 만듭니다. 지역은 Seoul(ap-northeast-2)을 고르면 빠릅니다.
+2. 왼쪽 메뉴의 **SQL Editor**를 열고 `supabase/schema.sql` 파일 내용을 전부 붙여넣은 뒤 **Run**을 누릅니다.
+3. 프로젝트 화면 위쪽 **Connect** 버튼(또는 Project Settings > API Keys)에서 아래 두 값을 복사합니다.
+   - Project URL (예: `https://abcdefghijklmnop.supabase.co`)
+   - publishable key (`sb_publishable_...`) 또는 legacy anon public key
+   - `service_role`이나 `secret` 키는 쓰지 마세요.
+
+### 2. config.js 채우기
+`config.js`를 열어 `SUPABASE_URL`과 `SUPABASE_ANON_KEY`에 위 값을 넣습니다.
+'사업 자료 관리' 탭을 번호로 잠그려면 `ADMIN_PIN`에 숫자를 넣습니다. 실수 방지용이며 보안 장치는 아닙니다.
+
+### 3. GitHub Pages로 배포
+1. GitHub에서 새 저장소를 만듭니다. 무료 계정에서 GitHub Pages를 쓰려면 Public이어야 합니다.
+2. 이 폴더의 파일을 모두 올립니다. 웹에서 올릴 때는 저장소 화면의 **Add file > Upload files**에 폴더 내용을 끌어다 놓고 Commit 합니다.
+3. 저장소 **Settings > Pages**에서 Source를 **Deploy from a branch**, Branch를 **main / (root)** 로 정하고 Save 합니다.
+4. 1~2분 뒤 `https://<계정명>.github.io/<저장소명>/` 주소가 생깁니다. 이 주소를 팀에 공유하면 됩니다.
+
+## 쓰는 법
+1. 사이트 오른쪽 위 **내 이름**을 적습니다. 스크립트·질의 작성자로 표시됩니다.
+2. **사업 자료 관리** 탭에서 사업을 만들고 발표자료 PPTX와 정성제안서를 올립니다.
+   - PPTX 슬라이드는 브라우저에서 바로 그립니다. 원본과 다르게 보이면 같은 발표자료를 PDF로 저장해 PPTX와 함께 고르세요. 화면은 PDF로, 글자·노트는 PPTX에서 가져옵니다.
+   - 숨긴 슬라이드는 빠집니다.
+   - 정성제안서는 PPTX, PDF, DOCX를 받습니다. HWP는 PDF로 저장해서 올려 주세요.
+3. **질의 목록 > AI 질의 생성용 프롬프트**: 사이트가 API 키 없이 동작하도록 AI를 직접 부르지 않습니다. 버튼으로 복사한 프롬프트를 claude.ai에 붙여넣고, 받은 JSON 결과를 다시 붙여넣으면 골라서 넣을 수 있습니다.
+4. 리허설 기록과 질의 연습 표시(잘 답함·다시 연습)는 각자 브라우저에만 저장됩니다.
+
+## 알아 둘 점
+- 링크를 아는 사람은 누구나 자료를 보고 쓰고 지울 수 있습니다. 저장소가 Public이면 `config.js`의 Supabase 주소와 키도 공개되므로, 그 키로 데이터베이스에 직접 접근할 수도 있습니다. 제안 자료가 외부에 알려지면 안 되는 사업이라면 접근 제한(로그인 또는 비밀번호)을 추가하세요.
+- 검색엔진 노출을 막는 `noindex` 태그는 넣어 두었습니다.
+- Supabase 무료 플랜은 일주일 동안 아무도 접속하지 않으면 프로젝트가 일시 정지될 수 있습니다. 정지되면 Supabase 대시보드에서 다시 켜면 됩니다.
+- Supabase 무료 플랜의 파일 한 개당 업로드 한도는 50MB입니다.
+
+## 파일 구성
+```
+index.html          화면 구조
+styles.css          디자인
+app.js              동작 (파일 파싱, 타이머, 검색, Supabase 저장)
+config.js           Supabase 주소·키, 관리 번호
+supabase/schema.sql 데이터베이스·파일 저장소 설정
+.nojekyll           GitHub Pages가 파일을 그대로 내보내도록 하는 표시
+```
+외부 라이브러리는 jsDelivr에서 버전을 고정해 불러옵니다: supabase-js 2.118.0, pptx-preview 1.0.7, pdf.js 3.11.174, JSZip 3.10.1.
