@@ -17,7 +17,7 @@ const CPM = 320; // 발표 속도: 공백 제외 분당 320자
 const estSec = t => Math.round(nonSpace(t) / CPM * 60);
 const tms = v => v ? (typeof v === 'number' ? v : Date.parse(v)) : 0;
 const dt = v => { const ms = tms(v); if(!ms) return ''; const d = new Date(ms); return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-const DEFAULT_CATS = ['사업 이해','기술·아키텍처','수행 방안','일정·인력','데이터·보안','경쟁사 대비 차별화','기타'];
+const DEFAULT_CATS = ['사업 이해','기술·아키텍처','수행 방안','일정·인력','데이터·보안','기대효과·정량 목표','경쟁사 대비 차별화','기타'];
 const me = () => (S.me || '').trim() || '이름 없음';
 
 function toast(msg, ms=3200){ const d = document.createElement('div'); d.textContent = msg; $('#toast').appendChild(d); setTimeout(()=>d.remove(), ms); }
@@ -591,6 +591,19 @@ async function saveScript(no){
 }
 
 /* ───────── 3. 질의 목록 ───────── */
+const isAuto = x => x.src === 'auto';
+function srcMatch(x, f){ return !f || (f === 'team' ? !isAuto(x) : f === 'auto' ? isAuto(x) : f === 'noanswer' ? !(x.a || '').trim() : true); }
+function slideHint(page){
+  const n = parseInt(String(page || ''), 10); if(!n || /제안서/.test(String(page))) return '';
+  const s = S.slides[n - 1]; if(!s) return '';
+  const sc = (S.scripts[n] && S.scripts[n].body || '').trim();
+  const lines = String(s.body || '').split('\n').filter(Boolean).slice(0, 4).join(' / ');
+  return `발표자료 p.${n} '${s.title || ''}'` + (lines ? `: ${lines}` : '') + (sc ? `\n스크립트: ${sc.length > 160 ? sc.slice(0, 160) + '…' : sc}` : '');
+}
+function sourcePills(x){
+  return (isAuto(x) ? '<span class="pill">자동 생성</span>' : x.src === 'ai' ? '<span class="pill warn">AI 생성 · 검토 필요</span>' : '<span class="pill ok">우리 팀</span>')
+    + ((x.a || '').trim() ? '' : '<span class="pill bad">답변 필요</span>');
+}
 let qaPanel = null, aiItems = null;
 function catsInUse(){ const s = new Set(DEFAULT_CATS); S.qa.forEach(x => x.cat && s.add(x.cat)); return [...s]; }
 function pageNum(p){ const m = String(p||'').match(/\d+/); return m ? +m[0] : 9999; }
@@ -608,22 +621,23 @@ function qaMetaPills(x){
 }
 function renderQA(){
   const list = $('#qaList');
-  ['qaAddBtn','qaPasteBtn','qaAiBtn','qaCsvBtn'].forEach(id => $('#'+id).disabled = !S.project);
+  ['qaAddBtn','qaPasteBtn','qaAutoBtn','qaAiBtn','qaCsvBtn'].forEach(id => $('#'+id).disabled = !S.project);
   if(!S.project){ list.innerHTML = noProjectHTML(); $('#qaSummary').textContent = ''; $('#qaPanel').innerHTML = ''; return; }
   const catSel = $('#qaCat'); const curCat = catSel.value;
   const cats = [...new Set(S.qa.map(x => x.cat).filter(Boolean))];
   catSel.innerHTML = '<option value="">모든 구분</option>' + cats.map(c => `<option${c === curCat ? ' selected' : ''}>${esc(c)}</option>`).join('');
   const byCat = {}; S.qa.forEach(x => byCat[x.cat || '미분류'] = (byCat[x.cat || '미분류'] || 0) + 1);
-  $('#qaSummary').textContent = `총 ${S.qa.length}개` + (S.qa.length ? ' · ' + Object.entries(byCat).map(([k,v]) => `${k} ${v}`).join(' · ') : '');
+  const autoN = S.qa.filter(isAuto).length, noA = S.qa.filter(x => !(x.a || '').trim()).length;
+  $('#qaSummary').textContent = `총 ${S.qa.length}개 · 우리 팀 ${S.qa.length - autoN} · 자동 생성 ${autoN} · 답변 필요 ${noA}` + (S.qa.length ? ' · ' + Object.entries(byCat).map(([k,v]) => `${k} ${v}`).join(' · ') : '');
   renderQAPanel();
   const term = $('#qaSearch').value.trim().toLowerCase(), cat = catSel.value, src = $('#qaSrc').value, showA = $('#qaShowA').checked;
-  let rows = S.qa.filter(x => (!cat || x.cat === cat) && (!src || (x.src || 'manual') === src) && (!term || [x.q,x.a,x.cat,x.kw,x.rfp,x.page].join(' ').toLowerCase().includes(term)));
+  let rows = S.qa.filter(x => (!cat || x.cat === cat) && srcMatch(x, src) && (!term || [x.q,x.a,x.cat,x.kw,x.rfp,x.page].join(' ').toLowerCase().includes(term)));
   rows = sortQA(rows, $('#qaSort').value);
-  if(!S.qa.length){ list.innerHTML = '<div class="empty"><b>아직 질의가 없습니다</b>질의를 직접 추가하거나, 기존 엑셀 질의응답 시트를 복사해 붙여넣으세요.</div>'; return; }
+  if(!S.qa.length){ list.innerHTML = `<div class="empty"><b>아직 질의가 없습니다</b>${S.slides.length ? "'발표자료로 자동 생성'을 누르거나, 우리 질의를 직접 넣거나 엑셀에서 붙여넣으세요." : '사업 자료 관리 탭에서 발표자료를 올리면 예상 질의가 자동으로 만들어집니다. 우리 질의는 직접 넣거나 엑셀에서 붙여넣으세요.'}</div>`; return; }
   list.innerHTML = rows.length ? rows.map(x => `<article class="qa">
-      <div class="qa-head">${qaMetaPills(x)}${x.src === 'ai' ? '<span class="pill warn">AI 생성 · 검토 필요</span>' : ''}</div>
+      <div class="qa-head">${qaMetaPills(x)}${sourcePills(x)}</div>
       <div class="qa-q">${esc(x.q)}</div>
-      ${x.a ? `<div class="qa-a ${showA ? '' : 'hidden'}" id="qaa-${esc(x.id)}">${esc(x.a)}</div>` : '<div class="progress-note">답변이 아직 없습니다.</div>'}
+      ${x.a ? `<div class="qa-a ${showA ? '' : 'hidden'}" id="qaa-${esc(x.id)}">${esc(x.a)}</div>` : `<div class="progress-note" style="white-space:pre-wrap">답변이 아직 없습니다. 수정을 눌러 답변을 적어 두세요.${slideHint(x.page) ? '\n참고 ' + esc(slideHint(x.page)) : ''}</div>`}
       <div class="qa-foot"><span>${x.kw ? '키워드: ' + esc(x.kw) + ' · ' : ''}작성 ${esc(x.author || '이름 없음')} · ${dt(x.created_at)}</span>
         <span class="acts">${x.a ? `<button type="button" class="ghost" data-act="toggleA" data-id="${esc(x.id)}">${showA ? '답변 가리기' : '답변 보기'}</button>` : ''}
         <button type="button" class="ghost" data-act="editQ" data-id="${esc(x.id)}">수정</button><button type="button" class="ghost" data-act="delQ" data-id="${esc(x.id)}">삭제</button></span></div>
@@ -663,6 +677,17 @@ function renderQAPanel(){
       $('#pasteGo').disabled = !rows.length; $('#pasteGo').textContent = rows.length ? `${rows.length}개 추가` : '추가';
     });
     $('#pasteBox').focus();
+  } else if(qaPanel.type === 'auto'){
+    const untouched = S.qa.filter(x => isAuto(x) && !(x.a || '').trim() && !x.updated_at).length;
+    el.innerHTML = `<div class="panel"><div class="panel-head"><h3>발표자료로 예상 질의 자동 생성</h3><button type="button" class="ghost" data-act="closePanel">닫기</button></div>
+      <p class="progress-note">AI 없이 규칙으로 만듭니다. 슬라이드의 RFP 요구사항 번호, 수치, '최초·유일' 같은 주장 표현, 보안·연계·일정·데이터 같은 주제어, 기술 용어를 읽어 평가위원이 물을 만한 질문을 만듭니다. 답변은 비워 두고, 답변 준비에 쓸 해당 슬라이드 내용을 함께 보여 줍니다.</p>
+      <div class="form-grid">
+        <div class="field"><label for="autoMax">최대 개수</label><select id="autoMax"><option>20</option><option selected>40</option><option>60</option></select></div>
+        <div class="field"><label for="autoPer">슬라이드당 최대</label><select id="autoPer"><option>1</option><option>2</option><option selected>3</option></select></div>
+      </div>
+      <label class="chk"><input type="checkbox" id="autoProp" checked> 정성제안서에만 있는 RFP 요구사항 번호도 질의로 만들기</label>
+      <p class="progress-note">다시 생성하면 답변을 적지 않은 자동 생성 질의 ${untouched}개를 새로 바꿉니다. 답변을 적었거나 수정한 질의와 우리 팀 질의는 그대로 둡니다.</p>
+      <div class="row"><button type="button" class="primary" data-act="autoGo" ${S.slides.length ? '' : 'disabled'}>질의 생성</button><span class="progress-note" id="autoProg">${S.slides.length ? '' : '먼저 사업 자료 관리 탭에서 발표자료를 올려 주세요.'}</span></div></div>`;
   } else if(qaPanel.type === 'ai'){
     el.innerHTML = `<div class="panel"><div class="panel-head"><h3>AI 질의 생성용 프롬프트</h3><button type="button" class="ghost" data-act="closePanel">닫기</button></div>
       <p class="progress-note">이 사이트는 API 키 없이 동작하도록 AI를 직접 부르지 않습니다. 아래 버튼으로 발표자료와 정성제안서 내용이 담긴 프롬프트를 복사해 Claude 대화창에 붙여넣고, 받은 결과를 그대로 아래 칸에 붙여넣으면 질의 목록에 들어갑니다. 답변 속 자사 표기는 '${esc(S.project.self_name || '제안사')}'입니다.</p>
@@ -747,6 +772,19 @@ function renderAiItems(){
     <div class="row" style="justify-content:flex-end;margin-top:8px"><button type="button" data-act="aiAll">모두 선택</button><button type="button" data-act="aiNone">모두 해제</button><button type="button" class="primary" data-act="aiAdd">고른 질의 목록에 넣기</button></div>`;
   out.querySelectorAll('[data-gi]').forEach(c => c.addEventListener('change', () => aiItems[+c.dataset.gi].pick = c.checked));
 }
+async function autoGenerate({max = 40, perSlide = 3, includeProposal = true, silent = false} = {}){
+  const pid = S.pid; if(!pid || !S.slides.length) return 0;
+  await W(() => q(sb.from('qa').delete().eq('project_id', pid).eq('src', 'auto').eq('a', '').is('updated_at', null)));
+  await loadTable('qa');
+  let propText = '';
+  if(includeProposal){ try{ const r = await q(sb.from('proposal_text').select('body').eq('project_id', pid).maybeSingle()); propText = (r && r.body) || ''; }catch(e){} }
+  const items = window.RuleQA.generate({slides: S.slides, proposalText: propText, existing: S.qa.map(x => x.q), self: S.project.self_name || '제안사', max, perSlide, includeProposal});
+  if(!items.length){ if(!silent) toast('새로 만들 질의가 없습니다.'); return 0; }
+  const rows = items.map(it => ({project_id: pid, cat: it.cat, q: it.q, a: '', page: it.page, rfp: it.rfp, kw: it.kw, author: '자동 생성', src: 'auto'}));
+  await W(() => q(sb.from('qa').insert(rows)));
+  await loadTable('qa');
+  return rows.length;
+}
 function exportQA(){
   const list = sortQA(S.qa, 'page');
   if(!list.length){ toast('내보낼 질의가 없습니다.'); return; }
@@ -793,7 +831,8 @@ function hl(text, toks){
 let prCat = '';
 function practiceSet(){
   const mark = $('#prMark').value;
-  return searchQA($('#prQ').value.trim()).map(r => r.x).filter(x => (!prCat || x.cat === prCat) && (!mark || (mark === 'none' ? !S.marks[x.id] : S.marks[x.id] === mark)));
+  const src = $('#prSrc').value;
+  return searchQA($('#prQ').value.trim()).map(r => r.x).filter(x => srcMatch(x, src) && (!prCat || x.cat === prCat) && (!mark || (mark === 'none' ? !S.marks[x.id] : S.marks[x.id] === mark)));
 }
 function renderPractice(){
   if(!$('#prDrill').classList.contains('hidden')) return;
@@ -808,10 +847,10 @@ function renderPractice(){
   if(!S.qa.length){ res.innerHTML = '<div class="empty"><b>연습할 질의가 아직 없습니다</b>질의 목록 탭에 질의가 모이면 여기서 검색해 연습할 수 있습니다.</div>'; return; }
   if(!set.length){ res.innerHTML = '<div class="empty"><b>검색 결과가 없습니다</b>다른 키워드나 RFP 번호, 페이지 번호(예: p.12)로 찾아보세요.</div>'; return; }
   res.innerHTML = set.slice(0, 200).map(x => `<article class="qa">
-    <div class="qa-head">${qaMetaPills(x)}${S.marks[x.id] === 'ok' ? '<span class="pill ok">잘 답함</span>' : S.marks[x.id] === 'again' ? '<span class="pill warn">다시 연습</span>' : ''}</div>
+    <div class="qa-head">${qaMetaPills(x)}${sourcePills(x)}${S.marks[x.id] === 'ok' ? '<span class="pill ok">잘 답함</span>' : S.marks[x.id] === 'again' ? '<span class="pill warn">다시 연습</span>' : ''}</div>
     <div class="qa-q">${hl(x.q, toks)}</div>
-    ${x.a ? `<div class="qa-a hidden" id="pra-${esc(x.id)}">${hl(x.a, toks)}</div>` : ''}
-    <div class="qa-foot"><span>${x.kw ? '키워드: ' + hl(x.kw, toks) : ''}</span><span class="acts">${x.a ? `<button type="button" class="ghost" data-act="prToggle" data-id="${esc(x.id)}">답변 보기</button>` : ''}<button type="button" data-act="prOne" data-id="${esc(x.id)}">이 질의만 연습</button></span></div>
+    <div class="qa-a hidden" id="pra-${esc(x.id)}">${x.a ? hl(x.a, toks) : esc('답변이 아직 없습니다.' + (slideHint(x.page) ? '\n참고 ' + slideHint(x.page) : ''))}</div>
+    <div class="qa-foot"><span>${x.kw ? '키워드: ' + hl(x.kw, toks) : ''}</span><span class="acts"><button type="button" class="ghost" data-act="prToggle" data-id="${esc(x.id)}">답변 보기</button><button type="button" data-act="prOne" data-id="${esc(x.id)}">이 질의만 연습</button></span></div>
   </article>`).join('') + (set.length > 200 ? `<p class="progress-note">상위 200개만 보여 줍니다. 검색어를 좁혀 보세요.</p>` : '');
 }
 function startDrill(list){
@@ -829,7 +868,8 @@ function showDrill(){
   $('#drMeta').innerHTML = qaMetaPills(x);
   $('#drQ').textContent = x.q;
   const a = $('#drA'); a.classList.add('hidden');
-  a.innerHTML = esc(x.a || '등록된 답변이 없습니다. 말해 본 답변을 질의 목록에 적어 두세요.') + (x.page ? `<span class="src">근거: 발표자료 ${/^\d/.test(x.page) ? 'p.' : ''}${esc(x.page)}${x.rfp ? ' · ' + esc(x.rfp) : ''}</span>` : '');
+  const hint = slideHint(x.page);
+  a.innerHTML = esc(x.a || ('등록된 답변이 없습니다. 말해 본 답변을 질의 목록에 적어 두세요.' + (hint ? '\n\n참고 ' + hint : ''))) + (x.page ? `<span class="src">근거: 발표자료 ${/^\d/.test(x.page) ? 'p.' : ''}${esc(x.page)}${x.rfp ? ' · ' + esc(x.rfp) : ''}</span>` : '');
   $('#drReveal').textContent = '답변 보기 (Space)';
   $('#drPrev').disabled = D.i === 0;
   $('#drLimitTxt').textContent = '목표 ' + fmtKo(+$('#prLimit').value);
@@ -1001,6 +1041,7 @@ async function handleDeck(files){
     prog(`완료: 슬라이드 ${rows.length}장` + (imported ? `, 노트 ${imported}장을 스크립트로` : '') + mismatch);
     toast(`슬라이드 ${rows.length}장을 저장했습니다.` + mismatch, mismatch ? 7000 : 3500);
     await loadProjects(); await Promise.all(['slides','scripts'].map(loadTable));
+    try{ const n = await autoGenerate({silent: true}); if(n){ prog(setupMsg.deck + ` · 예상 질의 ${n}개 자동 생성`); toast(`발표자료로 예상 질의 ${n}개를 자동으로 만들었습니다. 질의 목록 탭에서 확인하세요.`, 5000); } }catch(e){}
   }catch(e){ console.error(e); prog('처리하지 못했습니다: ' + ((e && e.message) || e)); }
 }
 async function handleProposal(file){
@@ -1028,6 +1069,7 @@ async function handleProposal(file){
     if(oldProp) removeFiles([oldProp.path]);
     prog(`완료: ${pages ? pages + '쪽, ' : ''}${text.length.toLocaleString()}자 저장`); toast('정성제안서를 저장했습니다.');
     await loadProjects();
+    if(S.slides.length){ try{ const n = await autoGenerate({silent: true}); if(n) prog(setupMsg.prop + ` · 예상 질의 ${n}개 다시 생성`); }catch(e){} }
   }catch(e){ console.error(e); prog('처리하지 못했습니다: ' + ((e && e.message) || e)); }
 }
 async function deleteProject(){
@@ -1076,6 +1118,8 @@ function bindUI(){
   $('#qaAddBtn').onclick = () => { qaPanel = {type:'add'}; renderQAPanel(); };
   $('#qaPasteBtn').onclick = () => { qaPanel = {type:'paste'}; renderQAPanel(); };
   $('#qaAiBtn').onclick = () => { qaPanel = {type:'ai'}; aiItems = null; renderQAPanel(); };
+  $('#qaAutoBtn').onclick = () => { qaPanel = {type:'auto'}; renderQAPanel(); };
+  $('#prSrc').addEventListener('change', renderPractice);
   $('#qaCsvBtn').onclick = exportQA;
   ['qaSearch','qaCat','qaSrc','qaSort','qaShowA'].forEach(id => $('#'+id).addEventListener(id === 'qaSearch' ? 'input' : 'change', renderQA));
   $('#qaPanel').addEventListener('click', async e => {
@@ -1087,6 +1131,11 @@ function bindUI(){
       const rows = parseQAInput($('#pasteBox').value); if(!rows.length) return;
       b.disabled = true; b.textContent = '추가하는 중';
       try{ const n = await addMany(rows, 'import'); toast(`질의 ${n}개를 추가했습니다.`); qaPanel = null; renderQA(); }catch(err){ b.disabled = false; b.textContent = '다시 시도'; }
+    }
+    else if(act === 'autoGo'){
+      b.disabled = true; const prog = $('#autoProg'); prog.textContent = '만드는 중';
+      try{ const n = await autoGenerate({max: +$('#autoMax').value, perSlide: +$('#autoPer').value, includeProposal: $('#autoProp').checked}); toast(`예상 질의 ${n}개를 만들었습니다.`); qaPanel = null; $('#qaSrc').value = 'auto'; renderQA(); }
+      catch(err){ b.disabled = false; prog.textContent = '만들지 못했습니다.'; }
     }
     else if(act === 'aiCopy'){
       const prog = $('#aiProg'); prog.textContent = '프롬프트를 만드는 중';

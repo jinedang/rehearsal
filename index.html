@@ -88,9 +88,10 @@
   <div class="view-head">
     <div><h2>예상 질의 목록</h2><p id="qaSummary"></p></div>
     <div class="tools">
-      <button id="qaAddBtn" class="primary" type="button">질의 추가</button>
+      <button id="qaAddBtn" class="primary" type="button">우리 질의 추가</button>
       <button id="qaPasteBtn" type="button">엑셀에서 붙여넣기</button>
-      <button id="qaAiBtn" type="button">AI 질의 생성용 프롬프트</button>
+      <button id="qaAutoBtn" type="button">발표자료로 자동 생성</button>
+      <button id="qaAiBtn" type="button">AI 프롬프트 복사</button>
       <button id="qaCsvBtn" type="button">CSV 내려받기</button>
     </div>
   </div>
@@ -98,7 +99,7 @@
   <div class="filters">
     <input id="qaSearch" type="search" placeholder="목록 안에서 찾기">
     <select id="qaCat" aria-label="구분"></select>
-    <select id="qaSrc" aria-label="출처"><option value="">모든 출처</option><option value="manual">직접 입력</option><option value="import">엑셀 붙여넣기</option><option value="ai">AI 생성</option></select>
+    <select id="qaSrc" aria-label="출처"><option value="">모든 질의</option><option value="team">우리 팀 질의</option><option value="auto">자동 생성 질의</option><option value="noanswer">답변이 없는 질의</option></select>
     <select id="qaSort" aria-label="정렬"><option value="page">페이지순</option><option value="cat">구분순</option><option value="new">최근 추가순</option></select>
     <label class="chk"><input type="checkbox" id="qaShowA" checked> 답변 펼치기</label>
   </div>
@@ -115,6 +116,7 @@
     </div>
     <div class="pr-bar">
       <span id="prCount"></span>
+      <select id="prSrc" aria-label="출처"><option value="">모든 질의</option><option value="team">우리 팀 질의</option><option value="auto">자동 생성 질의</option></select>
       <select id="prMark" aria-label="내 연습 기록"><option value="">내 기록 전체</option><option value="none">아직 안 해본 질의</option><option value="again">다시 연습 표시</option><option value="ok">잘 답한 질의</option></select>
       <select id="prOrder" aria-label="순서"><option value="list">목록 순서</option><option value="random">무작위 순서</option></select>
       <select id="prLimit" aria-label="답변 목표 시간"><option value="30">답변 30초</option><option value="60" selected>답변 1분</option><option value="90">답변 1분 30초</option><option value="120">답변 2분</option></select>
@@ -148,6 +150,7 @@
 <div id="toast" aria-live="polite"></div>
 <div id="overlay" class="hidden" role="dialog" aria-modal="true"><div class="box"><h3 id="ovTitle"></h3><p id="ovMsg" style="color:var(--muted);font-size:14px"></p><div class="row"><button id="ovNo" type="button">취소</button><button id="ovYes" class="primary" type="button">확인</button></div></div></div>
 
+<script src="rules.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
