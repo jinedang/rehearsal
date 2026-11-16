@@ -3,7 +3,7 @@
 // 값은 Supabase 프로젝트 화면의 Connect 버튼이나 Project Settings > API Keys에서 볼 수 있습니다.
 window.RR_CONFIG = {
   // 예: "https://abcdefghijklmnop.supabase.co"
-  SUPABASE_URL: "https://supabase.com/dashboard/project/frjofrkfqqfpfnjovuzu/sql/07480cae-341f-4e58-a6c5-4367ada62947",
+  SUPABASE_URL: "https://frjofrkfqqfpfnjovuzu.supabase.co",
 
   // publishable key(sb_publishable_로 시작) 또는 legacy anon public key
   // 브라우저에 공개되는 용도의 키입니다. service_role / secret key는 절대 넣지 마세요.
